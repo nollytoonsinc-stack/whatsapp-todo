@@ -4,6 +4,12 @@ const cron = require("node-cron");
 const fs = require("fs");
 const path = require("path");
 
+// FIX: Ensure crypto is available globally
+if (!globalThis.crypto) {
+  const { webcrypto } = require("crypto");
+  globalThis.crypto = webcrypto;
+}
+
 // Data file for storing reminders
 const DATA_FILE = "reminders.json";
 
@@ -32,7 +38,6 @@ function parseTime(timeStr) {
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  // Handle "tomorrow" prefix
   let targetDate = now;
   let cleanTime = timeStr.toLowerCase();
 
@@ -41,7 +46,6 @@ function parseTime(timeStr) {
     cleanTime = cleanTime.replace("tomorrow", "").trim();
   }
 
-  // Parse time (9am, 5:30pm, 14:30, etc.)
   const timeMatch = cleanTime.match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
   if (!timeMatch) return null;
 
@@ -111,12 +115,10 @@ async function connectWhatsApp() {
 
     let response = "";
 
-    // Initialize user's reminder list
     if (!reminders[jid]) reminders[jid] = {};
 
     const cmd = text.toLowerCase().trim();
 
-    // Commands
     if (cmd.startsWith("remind me to ") || cmd.startsWith("todo ")) {
       const taskText = cmd
         .replace("remind me to ", "")
@@ -141,15 +143,12 @@ async function connectWhatsApp() {
           const timeDisplay = reminderTime.toLocaleString();
           response = `✅ Reminder set!\n📝 ${task}\n⏰ ${timeDisplay}`;
         } else {
-          response = "❌ Couldn't parse the time. Try: 'remind me to buy milk at 9am' or 'todo finish report by 5:30pm'";
+          response = "❌ Couldn't parse the time. Try: 'remind me to buy milk at 9am'";
         }
       } else {
-        response = "❌ Format: remind me to [task] at [time]\nExample: remind me to call mom at 3pm";
+        response = "❌ Format: remind me to [task] at [time]";
       }
-    }
-
-    // List reminders
-    else if (cmd === "list" || cmd === "reminders") {
+    } else if (cmd === "list" || cmd === "reminders") {
       const userReminders = reminders[jid];
       if (Object.keys(userReminders).length === 0) {
         response = "📋 No reminders yet.";
@@ -162,10 +161,7 @@ async function connectWhatsApp() {
           }
         });
       }
-    }
-
-    // Mark as done
-    else if (cmd.startsWith("done ")) {
+    } else if (cmd.startsWith("done ")) {
       const taskNum = parseInt(cmd.replace("done ", "")) - 1;
       let idx = 0;
       for (const [id, reminder] of Object.entries(reminders[jid])) {
@@ -180,31 +176,12 @@ async function connectWhatsApp() {
         }
       }
       if (!response) response = "❌ Invalid task number";
+    } else if (cmd === "help") {
+      response = `📱 WhatsApp Todo & Reminder Bot\n\nCommands:\n• remind me to [task] at [time]\n• todo [task] by [time]\n• list\n• done [number]\n• help`;
+    } else {
+      response = `Hi! 👋 I'm your todo & reminder bot.\n\nTry:\n"remind me to buy milk at 9am"\n\nType "help" for commands.`;
     }
 
-    // Help
-    else if (cmd === "help") {
-      response = `📱 WhatsApp Todo & Reminder Bot\n\n
-Commands:
-• remind me to [task] at [time]
-  Example: remind me to buy milk at 9am
-
-• todo [task] by [time]
-  Example: todo finish report by 5:30pm
-
-• list - show all reminders
-• done [number] - mark task complete
-• help - show this message
-
-Time formats: 9am, 3:30pm, tomorrow 10am`;
-    }
-
-    // Default
-    else {
-      response = `Hi! 👋 I'm your todo & reminder bot.\n\nTry:\n"remind me to buy milk at 9am"\n"todo finish work by 5pm"\n"list"\n\nType "help" for more commands.`;
-    }
-
-    // Send response
     await sock.sendMessage(jid, { text: response });
   });
 }
