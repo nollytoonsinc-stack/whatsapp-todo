@@ -1,0 +1,17 @@
+{
+  "name": "whatsapp-todo-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp todo and reminder bot",
+  "main": "whatsapp-bot.js",
+  "scripts": {
+    "start": "node whatsapp-bot.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.6.4",
+    "@hapi/boom": "^10.0.1",
+    "node-cron": "^3.0.2"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
